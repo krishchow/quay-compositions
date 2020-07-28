@@ -49,7 +49,7 @@ metadata:
 spec:
 # You can use UseExistingTarget as well to schedule to a KubernetesTarget in the
 # same namespace randomly.
-  provisionPolicy: ProvisionNewCluster
+  region: us-east-1
 
 #  This is the default value.
 # image: wordpress:4.6.1-apache

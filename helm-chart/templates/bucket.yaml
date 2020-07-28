@@ -1,0 +1,88 @@
+---
+apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: InfrastructureDefinition
+metadata:
+  name: buckets.storage.example.org
+spec:
+  connectionSecretKeys:
+    - host
+    - secretKey
+    - accessKey
+    - bucketName
+  crdSpecTemplate:
+    group: storage.example.org
+    version: v1alpha1
+    names:
+      kind: Bucket
+      listKind: BucketList
+      plural: buckets
+      singular: bucket
+    validation:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              parameters:
+                type: object
+                properties:
+                  name:
+                    type: string
+                required:
+                  - name
+            required:
+              - parameters
+---
+apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: InfrastructurePublication
+metadata:
+  name: buckets.storage.example.org
+spec:
+  infrastructureDefinitionRef:
+    name: buckets.storage.example.org
+---
+apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: Composition
+metadata:
+  name: buckets.aws.storage.example.org
+  labels:
+    provider: aws
+    guide: quickstart
+spec:
+  writeConnectionSecretsToNamespace: crossplane-system
+  reclaimPolicy: Delete
+  from:
+    apiVersion: storage.example.org/v1alpha1
+    kind: Bucket
+  to:
+    - base:
+        apiVersion: storage.aws.crossplane.io/v1alpha3
+        kind: S3Bucket
+        metadata:
+          name: {{ .Values.bucket | quote }}
+        spec:
+          localPermission: ReadWrite
+          region: {{ .Values.region | default "us-east-1" }}
+          cannedACL: private
+          writeConnectionSecretToRef:
+            namespace: crossplane-system
+          providerRef:
+            name: aws-provider
+          reclaimPolicy: Delete
+      patches:
+        - fromFieldPath: "metadata.uid"
+          toFieldPath: "spec.writeConnectionSecretToRef.name"
+          transforms:
+            - type: string
+              string:
+                fmt: "%s-bucket"
+      connectionDetails:
+        - name: host
+          fromConnectionSecretKey: endpoint
+        - name: accessKey
+          fromConnectionSecretKey: username
+        - name: secretKey
+          fromConnectionSecretKey: password
+        - name: bucketName
+          value: {{ .Values.bucket | quote }}

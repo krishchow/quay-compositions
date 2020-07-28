@@ -2,15 +2,16 @@ version: 0.1.0
 configSections:
 - title: Provision Details
   items:
-  - name: provisionPolicy
-    controlType: singleSelect
-    path: .spec.provisionPolicy
-    title: Provision Policy
-    default:
-    - 'ProvisionNewCluster'
-    enum:
-    - 'ProvisionNewCluster'
-    - 'UseExistingTarget'
+  - name: region
+    controlType: singleInput
+    path: .spec.region
+    title: Resource Region
+    validation:
+    - required: true
+  - name: bucket
+    controlType: singleInput
+    path: .spec.bucket
+    title: Bucket Name
     validation:
     - required: true
 initialConfig: true

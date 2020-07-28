@@ -2,73 +2,69 @@
 apiVersion: apiextensions.crossplane.io/v1alpha1
 kind: InfrastructureDefinition
 metadata:
-  name: postgresqlinstances.database.example.org
+  name: redisclusters.cache.example.org
 spec:
   connectionSecretKeys:
-    - database-username
-    - database-password
-    - database-root-password
-    - database-name
-    - database-server
+    - hostname
     - port
   crdSpecTemplate:
-    group: database.example.org
+    group: cache.example.org
     version: v1alpha1
     names:
-      kind: PostgreSQLInstance
-      listKind: PostgreSQLInstanceList
-      plural: postgresqlinstances
-      singular: postgresqlinstance
+      kind: RedisCluster
+      listKind: RedisClusterList
+      plural: redisclusters
+      singular: rediscluster
     validation:
       openAPIV3Schema:
         type: object
         properties:
           spec:
             type: object
-            properties:
-              parameters:
-                type: object
-                properties:
-                  storageGB:
-                    type: integer
-                required:
-                  - storageGB
-            required:
-              - parameters
 ---
 apiVersion: apiextensions.crossplane.io/v1alpha1
 kind: InfrastructurePublication
 metadata:
-  name: postgresqlinstances.database.example.org
+  name: redisclusters.cache.example.org
 spec:
   infrastructureDefinitionRef:
-    name: postgresqlinstances.database.example.org
+    name: redisclusters.cache.example.org
 ---
 apiVersion: apiextensions.crossplane.io/v1alpha1
 kind: Composition
 metadata:
-  name: vpcpostgresqlinstances.aws.database.example.org
+  name: vpcredisclusters.aws.cache.example.org
   labels:
     provider: aws
     guide: quickstart
-    vpc: vpc-03167a922724e3b89
+    vpc: new 
 spec:
   writeConnectionSecretsToNamespace: crossplane-system
   reclaimPolicy: Delete
   from:
-    apiVersion: database.example.org/v1alpha1
-    kind: PostgreSQLInstance
+    apiVersion: cache.example.org/v1alpha1
+    kind: RedisCluster
   to:
+    - base:
+        apiVersion: network.aws.crossplane.io/v1alpha3
+        kind: VPC
+        spec:
+          cidrBlock: 192.168.0.0/16
+          enableDnsSupport: true
+          enableDnsHostNames: true
+          providerRef:
+            name: aws-provider
+          reclaimPolicy: Delete
     - base:
         apiVersion: network.aws.crossplane.io/v1alpha3
         kind: Subnet
         metadata:
           labels:
-            desc: postgres
             zone: {{ printf "%saa" (.Values.region | default "us-east-1") }}
         spec:
-          cidrBlock: 10.0.96.0/24
-          vpcId: vpc-03167a922724e3b89
+          cidrBlock: 192.168.64.0/18
+          vpcIdSelector:
+            matchControllerRef: true
           availabilityZone: {{ printf "%saa" (.Values.region | default "us-east-1") }}
           providerRef:
             name: aws-provider
@@ -78,11 +74,11 @@ spec:
         kind: Subnet
         metadata:
           labels:
-            desc: postgres
             zone: {{ printf "%sb" (.Values.region | default "us-east-1") }}
         spec:
-          cidrBlock: 10.0.97.0/24
-          vpcId: vpc-03167a922724e3b89
+          cidrBlock: 192.168.128.0/18
+          vpcIdSelector:
+            matchControllerRef: true
           availabilityZone: {{ printf "%sb" (.Values.region | default "us-east-1") }}
           providerRef:
             name: aws-provider
@@ -92,18 +88,18 @@ spec:
         kind: Subnet
         metadata:
           labels:
-            desc: postgres
             zone: {{ printf "%sc" (.Values.region | default "us-east-1") }}
         spec:
-          cidrBlock: 10.0.98.0/24
-          vpcId: vpc-03167a922724e3b89
+          cidrBlock: 192.168.192.0/18
+          vpcIdSelector:
+            matchControllerRef: true
           availabilityZone: {{ printf "%sc" (.Values.region | default "us-east-1") }}
           providerRef:
             name: aws-provider
           reclaimPolicy: Delete
     - base:
-        apiVersion: database.aws.crossplane.io/v1beta1
-        kind: DBSubnetGroup
+        apiVersion: cache.aws.crossplane.io/v1alpha1
+        kind: CacheSubnetGroup
         spec:
           forProvider:
             description: An excellent formation of subnetworks.
@@ -114,24 +110,32 @@ spec:
           reclaimPolicy: Delete
     - base:
         apiVersion: network.aws.crossplane.io/v1alpha3
+        kind: InternetGateway
+        spec:
+          vpcIdSelector:
+            matchControllerRef: true
+          providerRef:
+            name: aws-provider
+          reclaimPolicy: Delete
+    - base:
+        apiVersion: network.aws.crossplane.io/v1alpha3
         kind: RouteTable
         spec:
-          vpcId: vpc-03167a922724e3b89
+          vpcIdSelector:
+            matchControllerRef: true
           routes:
             - destinationCidrBlock: 0.0.0.0/0
-              gatewayId: igw-05922aa399c27bf42
+              gatewayIdSelector:
+                matchControllerRef: true
           associations:
             - subnetIdSelector:
                 matchLabels:
-                  desc: postgres
                   zone: {{ printf "%saa" (.Values.region | default "us-east-1") }}
             - subnetIdSelector:
                 matchLabels:
-                  desc: postgres
                   zone: {{ printf "%sb" (.Values.region | default "us-east-1") }}
             - subnetIdSelector:
                 matchLabels:
-                  desc: postgres
                   zone: {{ printf "%sc" (.Values.region | default "us-east-1") }}
           providerRef:
             name: aws-provider
@@ -140,12 +144,13 @@ spec:
         apiVersion: network.aws.crossplane.io/v1alpha3
         kind: SecurityGroup
         spec:
-          vpcId: vpc-03167a922724e3b89
-          groupName: crossplane-postgres
-          description: Allow access to PostgreSQL
+          vpcIdSelector:
+            matchControllerRef: true
+          groupName: crossplane-getting-started
+          description: Allow access to Redis
           ingress:
-            - fromPort: 5432
-              toPort: 5432
+            - fromPort: 6379
+              toPort: 6379
               protocol: tcp
               cidrBlocks:
                 - cidrIp: 0.0.0.0/0
@@ -154,44 +159,21 @@ spec:
             name: aws-provider
           reclaimPolicy: Delete
     - base:
-        apiVersion: database.aws.crossplane.io/v1beta1
-        kind: RDSInstance
+        apiVersion: cache.aws.crossplane.io/v1beta1
+        kind: ReplicationGroup
         spec:
           forProvider:
-            dbSubnetGroupNameSelector:
-              matchControllerRef: true
-            vpcSecurityGroupIDSelector:
-              matchControllerRef: true
-            dbInstanceClass: db.t2.small
-            masterUsername: masteruser
-            engine: postgres
-            engineVersion: "9.6"
-            skipFinalSnapshotBeforeDeletion: true
-            publiclyAccessible: true
+            cacheNodeType: cache.t2.small
+            applyModificationsImmediately: true
+            engine: redis
+            replicationGroupDescription: redis cluster for Quay
           writeConnectionSecretToRef:
             namespace: crossplane-system
-            name: postgres-secret-internal
+            name: redis-internal-secret
           providerRef:
             name: aws-provider
           reclaimPolicy: Delete
-      patches:
-        - fromFieldPath: "metadata.uid"
-          toFieldPath: "spec.writeConnectionSecretToRef.name"
-          transforms:
-            - type: string
-              string:
-                fmt: "%s-postgresql"
-        - fromFieldPath: "spec.parameters.storageGB"
-          toFieldPath: "spec.forProvider.allocatedStorage"
       connectionDetails:
-        - name: database-username
-          fromConnectionSecretKey: username
-        - name: database-password
-          fromConnectionSecretKey: password
-        - name: database-root-password
-          value: postgrestest
-        - name: database-name
-          value: postgres
-        - name: server
+        - name: hostname
           fromConnectionSecretKey: endpoint
         - fromConnectionSecretKey: port

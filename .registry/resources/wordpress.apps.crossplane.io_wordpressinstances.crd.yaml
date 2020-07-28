@@ -34,16 +34,11 @@ spec:
         spec:
           description: WordpressInstanceSpec defines the desired state of WordpressInstance
           properties:
-            image:
-              description: Image will be used as image of the container that Wordpress
-                runs in. If not specified, the default will be used.
+            region:
+              description: region is the value of the region where these resources will be deployed
               type: string
-            provisionPolicy:
-              description: ProvisionPolicy indicates whether Wordpress should be deployed
-                to an existing Kubernetes cluster or to provision a new cluster.
-              enum:
-              - ProvisionNewCluster
-              - UseExistingTarget
+            bucket:
+              description: the name of the bucket that will be provisioned
               type: string
           type: object
       type: object

@@ -68,10 +68,8 @@ source: "https://github.com/crossplane/app-wordpress"
 # resources in the groups listed below.
 permissionScope: Namespaced
 dependsOn:
-- crd: "kubernetesclusters.compute.crossplane.io/v1alpha1"
-- crd: "mysqlinstances.database.crossplane.io/v1alpha1"
-- crd: "kubernetesapplications.workload.crossplane.io/v1alpha1"
-- crd: "kubernetesapplicationresources.workload.crossplane.io/v1alpha1"
-
+- crd: "redisclusters.cache.example.org/v1alpha1"
+- crd: "postgresqlinstances.database.example.org/v1alpha1"
+- crd: "buckets.storage.example.org/v1alpha1"
 # License SPDX name: https://spdx.org/licenses/
 license: Apache-2.0

@@ -440,7 +440,7 @@ metadata:
   namespace: workspace1
   name: my-cool-app
 spec:
-  provisionPolicy: ProvisionNewCluster
+  region: us-east-1
 ```
 
 Then apply it:
